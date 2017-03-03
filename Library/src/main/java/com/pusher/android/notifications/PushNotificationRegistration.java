@@ -141,7 +141,7 @@ public class PushNotificationRegistration implements InternalRegistrationProgres
 
     // Subscribes to an interest
     public void subscribe(String interest) {
-        subscribe(interest, null);
+        this.channelManager.unsubscribeFrom(channelName);
     }
 
     public void subscribe(final String interest, final InterestSubscriptionChangeListener listener) {
@@ -194,6 +194,28 @@ public class PushNotificationRegistration implements InternalRegistrationProgres
             subscription.getListener().onSubscriptionChangeFailed(statusCode, reason);
             iterator.remove();
         }
+    }
+    
+    public void unsubscribeFrom(String channelName) {
+        if(channelName == null) {
+            throw new IllegalArgumentException("Cannot unsubscribe from null channel");
+        } else {
+            InternalChannel channel = (InternalChannel)this.channelNameToChannelMap.remove(channelName);
+            if(channel != null) {
+                if(this.connection.getState() == ConnectionState.CONNECTED) {
+                    this.sendUnsubscribeMessage(channel);
+                }
+
+            }
+        }
+    }
+     private void sendUnsubscribeMessage(final InternalChannel channel) {
+        this.factory.queueOnEventThread(new Runnable() {
+            public void run() {
+                ChannelManager.this.connection.sendMessage(channel.toUnsubscribeMessage());
+                channel.updateState(ChannelState.UNSUBSCRIBED);
+            }
+        });
     }
 
 }
